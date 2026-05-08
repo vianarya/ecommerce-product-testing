@@ -1,0 +1,94 @@
+import pytest
+from tests.factories import make_product, make_products
+
+
+# Simulated in-memory product database
+product_db = {}
+
+
+def add_product(product):
+    product_db[product["id"]] = product
+    return product
+
+
+def get_product(product_id):
+    return product_db.get(product_id)
+
+
+def delete_product(product_id):
+    if product_id not in product_db:
+        return {"error": "Product not found"}, 404
+    del product_db[product_id]
+    return {"message": "Product deleted successfully"}, 200
+
+
+def setup_function():
+    """Clear DB before each test."""
+    product_db.clear()
+
+
+# ─────────────────────────────────────────────
+# DELETE TEST CASES
+# ─────────────────────────────────────────────
+
+def test_delete_product_success():
+    """Test deleting an existing product returns 200."""
+    product = make_product(id=1)
+    add_product(product)
+
+    response, status_code = delete_product(1)
+
+    assert status_code == 200
+    assert response["message"] == "Product deleted successfully"
+
+
+def test_delete_product_no_longer_exists():
+    """Test that deleted product cannot be retrieved."""
+    product = make_product(id=2)
+    add_product(product)
+
+    delete_product(2)
+    result = get_product(2)
+
+    assert result is None
+
+
+def test_delete_product_not_found():
+    """Test deleting a non-existent product returns 404."""
+    response, status_code = delete_product(999)
+
+    assert status_code == 404
+    assert response["error"] == "Product not found"
+
+
+def test_delete_product_twice():
+    """Test deleting the same product twice returns 404 on second attempt."""
+    product = make_product(id=3)
+    add_product(product)
+
+    delete_product(3)
+    response, status_code = delete_product(3)
+
+    assert status_code == 404
+    assert response["error"] == "Product not found"
+
+
+def test_delete_one_product_does_not_affect_others():
+    """Test that deleting one product does not remove other products."""
+    product_a = make_product(id=4)
+    product_b = make_product(id=5)
+    add_product(product_a)
+    add_product(product_b)
+
+    delete_product(4)
+
+    assert get_product(4) is None
+    assert get_product(5) is not None
+
+
+def test_delete_product_with_invalid_id():
+    """Test deleting a product with invalid/None id returns 404."""
+    response, status_code = delete_product(None)
+
+    assert status_code == 404
+    assert response["error"] == "Product not found"
